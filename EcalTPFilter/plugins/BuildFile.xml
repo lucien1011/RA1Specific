@@ -1,4 +1,3 @@
-<library   name="METFilters_plugins" file="*.cc">
 <use   name="FWCore/Framework"/>
 <use   name="FWCore/ServiceRegistry"/>
 <use   name="FWCore/PluginManager"/>
@@ -28,7 +27,11 @@
 <use   name="RecoJets/JetProducers"/>
 <use   name="RecoMET/METAlgorithms"/>
 <use   name="root"/>
+<use   name="RA1Specific/EcalTPFilter"/>
+
+<library file="EcalPrinter.cc" name="EcalPrinter">
 <flags   EDM_PLUGIN="1"/>
 </library>
-<export>
-</export>
+<flags   EDM_PLUGIN="1"/>
+
+

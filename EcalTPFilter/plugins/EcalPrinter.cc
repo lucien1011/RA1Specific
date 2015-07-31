@@ -1,9 +1,9 @@
 // -*- C++ -*-
 //
-// Package:    RA1Specific/EcalTPFilter
-// Class:      EcalTPFilter
+// Package:    RA1Specific/EcalPrinter
+// Class:      EcalPrinter
 // 
-/**\class EcalTPFilter EcalTPFilter.cc RA1Specific/EcalTPFilter/plugins/EcalTPFilter.cc
+/**\class EcalPrinter EcalPrinter.cc RA1Specific/EcalPrinter/plugins/EcalPrinter.cc
 
  Description: [one line class summary]
 
@@ -15,6 +15,8 @@
 //         Created:  Fri, 31 Jul 2015 10:28:22 GMT
 //
 //
+#ifdef RA1Specific_EcalPrinter
+#define RA1Specific_EcalPrinter
 
 
 // system include files
@@ -53,10 +55,10 @@
 // class declaration
 //
 
-class EcalTPFilter : public edm::EDAnalyzer {
+class EcalPrinter : public edm::EDAnalyzer {
    public:
-      explicit EcalTPFilter(const edm::ParameterSet&);
-      ~EcalTPFilter();
+      explicit EcalPrinter(const edm::ParameterSet&);
+      ~EcalPrinter();
 
       static void fillDescriptions(edm::ConfigurationDescriptions& descriptions);
 
@@ -73,10 +75,15 @@ class EcalTPFilter : public edm::EDAnalyzer {
       // ----------member data ---------------------------
       edm::ESHandle<EcalChannelStatus>  ecalStatus;
       int maskedEcalChannelStatusThreshold_;
+      bool print_;
+      std::string outPath_;
 
       std::map<DetId, std::vector<double> > EcalAllDeadChannelsValMap; 
       std::map<DetId, EcalTrigTowerDetId> EcalAllDeadChannelsTTMap;
       edm::ESHandle<EcalTrigTowerConstituentsMap> ttMap_;
+      edm::Handle<EcalTrigPrimDigiCollection> pTPDigis;
+      edm::EDGetTokenT<EcalTrigPrimDigiCollection> tpDigiCollectionToken_;
+
 };
 
 //
@@ -90,8 +97,12 @@ class EcalTPFilter : public edm::EDAnalyzer {
 //
 // constructors and destructor
 //
-EcalTPFilter::EcalTPFilter(const edm::ParameterSet& iConfig)
+EcalPrinter::EcalPrinter(const edm::ParameterSet& iConfig)
 : maskedEcalChannelStatusThreshold_ (iConfig.getParameter<int>("maskedEcalChannelStatusThreshold") ),
+print_ (iConfig.getParameter<bool>("makeFile") ),
+outPath_ (iConfig.getParameter<string>("outPath") ),
+tpDigiCollection_ (iConfig.getParameter<edm::InputTag>("tpDigiCollection") ),
+tpDigiCollectionToken_(consumes<EcalTrigPrimDigiCollection>(tpDigiCollection_))
 
 {
    //now do what ever initialization is needed
@@ -99,22 +110,12 @@ EcalTPFilter::EcalTPFilter(const edm::ParameterSet& iConfig)
 }
 
 
-EcalTPFilter::~EcalTPFilter()
+EcalPrinter::~EcalPrinter()
 {
- 
-   // do anything here that needs to be done at desctruction time
-   // (e.g. close files, deallocate resources etc.)
+} 
 
-}
-
-
-//
-// member functions
-//
-
-// ------------ method called for each event  ------------
 void
-EcalTPFilter::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
+EcalPrinter::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 {
    using namespace edm;
 
@@ -126,7 +127,7 @@ EcalTPFilter::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 
 // ------------ method called once each job just before starting event loop  ------------
 void 
-EcalTPFilter::beginJob()
+EcalPrinter::beginJob(const edm::Run &run, const edm::EventSetup& iSetup)
 {
 	iSetup.get<EcalChannelStatusRcd> ().get(ecalStatus);
 	iSetup.get<CaloGeometryRecord>   ().get(geometry);
@@ -190,53 +191,19 @@ EcalTPFilter::beginJob()
 
 }
 
-// ------------ method called once each job just after ending the event loop  ------------
 void 
-EcalTPFilter::endJob() 
+EcalPrinter::endJob() 
 {
-}
+	FILE * f;
+	f = fopen(outPath,"w");
+	std::map<DetId,EcalTrigTowerDetId>::iterator it;
+	for (it = EcalAllDeadChannelsTTMap.begin(); it != EcalAllDeadChannelsTTMap.end(); ++it){
+		fprintf("%d %d",it->second->ieta(), it->second->iphi());
+	};
 
-// ------------ method called when starting to processes a run  ------------
-/*
-void 
-EcalTPFilter::beginRun(edm::Run const&, edm::EventSetup const&)
-{
-}
-*/
-
-// ------------ method called when ending the processing of a run  ------------
-/*
-void 
-EcalTPFilter::endRun(edm::Run const&, edm::EventSetup const&)
-{
-}
-*/
-
-// ------------ method called when starting to processes a luminosity block  ------------
-/*
-void 
-EcalTPFilter::beginLuminosityBlock(edm::LuminosityBlock const&, edm::EventSetup const&)
-{
-}
-*/
-
-// ------------ method called when ending the processing of a luminosity block  ------------
-/*
-void 
-EcalTPFilter::endLuminosityBlock(edm::LuminosityBlock const&, edm::EventSetup const&)
-{
-}
-*/
-
-// ------------ method fills 'descriptions' with the allowed parameters for the module  ------------
-void
-EcalTPFilter::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
-  //The following says we do not know what parameters are allowed so do no validation
-  // Please change this to state exactly what you do use, even if it is no parameters
-  edm::ParameterSetDescription desc;
-  desc.setUnknown();
-  descriptions.addDefault(desc);
 }
 
 //define this as a plug-in
-DEFINE_FWK_MODULE(EcalTPFilter);
+DEFINE_FWK_MODULE(EcalPrinter);
+
+#endif
