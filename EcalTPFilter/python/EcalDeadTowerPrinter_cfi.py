@@ -1,4 +1,6 @@
 import FWCore.ParameterSet.Config as cms
 
-demo = cms.EDAnalyzer('EcalTPFilter'
+EcalPrinter = cms.EDAnalyzer('EcalTPFilter'
+		maskedEcalChannelStatusThreshold = cms.int32( 1 ),
+
 )
