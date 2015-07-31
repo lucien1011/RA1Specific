@@ -28,6 +28,27 @@
 #include "FWCore/Framework/interface/MakerMacros.h"
 
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
+
+// user include files
+#include "DataFormats/DetId/interface/DetId.h"
+#include "DataFormats/EcalDetId/interface/EBDetId.h"
+#include "DataFormats/EcalDetId/interface/EEDetId.h"
+#include "CondFormats/EcalObjects/interface/EcalChannelStatus.h"
+#include "CondFormats/DataRecord/interface/EcalChannelStatusRcd.h"
+#include "Geometry/CaloTopology/interface/EcalTrigTowerConstituentsMap.h"
+#include "Geometry/Records/interface/IdealGeometryRecord.h"
+
+// Geometry
+#include "Geometry/CaloGeometry/interface/CaloGeometry.h"
+#include "Geometry/CaloGeometry/interface/CaloCellGeometry.h"
+#include "Geometry/CaloGeometry/interface/CaloSubdetectorGeometry.h"
+#include "Geometry/Records/interface/CaloGeometryRecord.h"
+
+#include "Geometry/CaloTopology/interface/CaloTowerConstituentsMap.h"
+#include "DataFormats/CaloTowers/interface/CaloTowerDetId.h"
+
+
+
 //
 // class declaration
 //
@@ -38,7 +59,6 @@ class EcalTPFilter : public edm::EDAnalyzer {
       ~EcalTPFilter();
 
       static void fillDescriptions(edm::ConfigurationDescriptions& descriptions);
-
 
    private:
       virtual void beginJob() override;
@@ -51,6 +71,12 @@ class EcalTPFilter : public edm::EDAnalyzer {
       //virtual void endLuminosityBlock(edm::LuminosityBlock const&, edm::EventSetup const&) override;
 
       // ----------member data ---------------------------
+      edm::ESHandle<EcalChannelStatus>  ecalStatus;
+      int maskedEcalChannelStatusThreshold_;
+
+      std::map<DetId, std::vector<double> > EcalAllDeadChannelsValMap; 
+      std::map<DetId, EcalTrigTowerDetId> EcalAllDeadChannelsTTMap;
+      edm::ESHandle<EcalTrigTowerConstituentsMap> ttMap_;
 };
 
 //
@@ -65,6 +91,7 @@ class EcalTPFilter : public edm::EDAnalyzer {
 // constructors and destructor
 //
 EcalTPFilter::EcalTPFilter(const edm::ParameterSet& iConfig)
+: maskedEcalChannelStatusThreshold_ (iConfig.getParameter<int>("maskedEcalChannelStatusThreshold") ),
 
 {
    //now do what ever initialization is needed
@@ -93,15 +120,7 @@ EcalTPFilter::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 
 
 
-#ifdef THIS_IS_AN_EVENT_EXAMPLE
-   Handle<ExampleData> pIn;
-   iEvent.getByLabel("example",pIn);
-#endif
-   
-#ifdef THIS_IS_AN_EVENTSETUP_EXAMPLE
-   ESHandle<SetupData> pSetup;
-   iSetup.get<SetupRecord>().get(pSetup);
-#endif
+
 }
 
 
@@ -109,6 +128,66 @@ EcalTPFilter::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 void 
 EcalTPFilter::beginJob()
 {
+	iSetup.get<EcalChannelStatusRcd> ().get(ecalStatus);
+	iSetup.get<CaloGeometryRecord>   ().get(geometry);
+	iSetup.get<IdealGeometryRecord>().get(ttMap_);
+
+	if( !ecalStatus.isValid() )  throw "Failed to get ECAL channel status!";
+	if( !geometry.isValid()   )  throw "Failed to get the geometry!";	
+
+// Loop over EB	
+	for (int ieta= -85; ieta <=85; ieta++){
+		for (int iphi=0; iphi <= 360; iphi++){
+			if(! EBDetId::validDetId( ieta, iphi ) )  continue;
+
+			const EBDetId detid = EBDetId( ieta, iphi, EBDetId::ETAPHIMODE );
+			int status = ( chit != ecalStatus->end() ) ? chit->getStatusCode() & 0x1F : -1;
+			const CaloSubdetectorGeometry*  subGeom = geometry->getSubdetectorGeometry (detid);
+			const CaloCellGeometry*        cellGeom = subGeom->getGeometry (detid);
+			if(status >= maskedEcalChannelStatusThreshold_){
+				double eta = cellGeom->getPosition ().eta ();
+				double phi = cellGeom->getPosition ().phi ();
+				double theta = cellGeom->getPosition().theta();
+
+				std::vector<int> valVec;
+
+				valVec.push_back(eta); valVec.push_back(phi); valVec.push_back(theta);
+				EcalAllDeadChannelsValMap.insert( std::make_pair(detid, valVec) );
+			};
+		};
+	};
+
+// Loop over EE
+	for( int ix=0; ix<=100; ix++ ){
+		for( int iy=0; iy<=100; iy++ ){
+			for( int iz=-1; iz<=1; iz++ ){
+				if(iz==0)  continue;
+				if(! EEDetId::validDetId( ix, iy, iz ) )  continue;
+				const EEDetId detid = EEDetId( ix, iy, iz, EEDetId::XYMODE );
+				EcalChannelStatus::const_iterator chit = ecalStatus->find( detid );
+				int status = ( chit != ecalStatus->end() ) ? chit->getStatusCode() & 0x1F : -1;
+				const CaloSubdetectorGeometry* subGeom = geometry->getSubdetectorGeometry (detid);
+				const CaloCellGeometry* cellGeom = subGeom->getGeometry (detid);
+ 
+				if(status >= maskedEcalChannelStatusThreshold_){
+					double eta = cellGeom->getPosition ().eta ();
+					double phi = cellGeom->getPosition ().phi ();
+					double theta = cellGeom->getPosition().theta();
+					std::vector<double> valVec;
+					valVec.push_back(eta); valVec.push_back(phi); valVec.push_back(theta);
+					EcalAllDeadChannelsValMap.insert( std::make_pair(detid, valVec) );
+		            };
+		         }; // end loop iz
+		      }; // end loop iy
+		   }; // end loop ix
+
+	std::map<DetId,std::vector<double>>::iterator itor;
+	for (itor = EcalAllDeadChannelsValMap.begin(); itor != EcalAllDeadChannelsValMap.end(); itor++){
+		const DetId id = itor -> first;
+		EcalTrigTowerDetId ttDetId = ttMap_->towerOf(id);
+		EcalAllDeadChannelsTTMap.insert(std::make_pair(id, ttDetId) );
+	};
+
 }
 
 // ------------ method called once each job just after ending the event loop  ------------
