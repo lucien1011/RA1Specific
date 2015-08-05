@@ -1,3 +1,6 @@
+This package prints out ieta vs iphi map of the trigger tower with dead/masked ECAL cells.
+Recipe as follows:
+
 ```shell
 cmsrel CMSSW_7_4_7
 cd CMSSW_7_4_7/src/
