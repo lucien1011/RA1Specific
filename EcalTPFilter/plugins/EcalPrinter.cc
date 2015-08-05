@@ -159,7 +159,10 @@ EcalPrinter::beginRun(const edm::Run &run, const edm::EventSetup& iSetup)
 				std::vector<double> valVec;
 
 				valVec.push_back(eta); valVec.push_back(phi); valVec.push_back(theta);
-				EcalAllDeadChannelsValMap.insert( std::make_pair(detid, valVec) );
+				std::pair<DetId ,std::vector<double>> pair = std::make_pair(detid, valVec);
+				if (EcalAllDeadChannelsValMap.find(detid) == EcalAllDeadChannelsValMap.end()){
+					EcalAllDeadChannelsValMap.insert( pair );
+				};
 			};
 		};
 	};
@@ -182,7 +185,10 @@ EcalPrinter::beginRun(const edm::Run &run, const edm::EventSetup& iSetup)
 					double theta = cellGeom->getPosition().theta();
 					std::vector<double> valVec;
 					valVec.push_back(eta); valVec.push_back(phi); valVec.push_back(theta);
-					EcalAllDeadChannelsValMap.insert( std::make_pair(detid, valVec) );
+					std::pair< DetId ,std::vector<double>  > pair = std::make_pair(detid, valVec);
+					if (EcalAllDeadChannelsValMap.find(detid) == EcalAllDeadChannelsValMap.end()){
+						EcalAllDeadChannelsValMap.insert( pair );
+					};
 		            };
 		         }; // end loop iz
 		      }; // end loop iy
@@ -193,6 +199,8 @@ EcalPrinter::beginRun(const edm::Run &run, const edm::EventSetup& iSetup)
 		const DetId id = itor -> first;
 		EcalTrigTowerDetId ttDetId = ttMap_->towerOf(id);
 		EcalAllDeadChannelsTTMap.insert(std::make_pair(id, ttDetId) );
+		//CaloSubdetectorGeometry* towerGeo = geometry->getSubdetectorGeometry (ttDetId);
+		//std::cout << towerGeo->parVecVec().eta() << std::endl;
 	};
 
 	return;
