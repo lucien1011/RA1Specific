@@ -32,6 +32,5 @@
 <library file="EcalPrinter.cc" name="EcalPrinter">
 <flags   EDM_PLUGIN="1"/>
 </library>
-<flags   EDM_PLUGIN="1"/>
 
 
