@@ -15,9 +15,6 @@
 //         Created:  Fri, 31 Jul 2015 10:28:22 GMT
 //
 //
-#ifdef RA1Specific_EcalPrinter
-#define RA1Specific_EcalPrinter
-
 
 // system include files
 #include <memory>
@@ -25,6 +22,7 @@
 // user include files
 #include "FWCore/Framework/interface/Frameworkfwd.h"
 #include "FWCore/Framework/interface/EDAnalyzer.h"
+#include "FWCore/Framework/interface/ESHandle.h"
 
 #include "FWCore/Framework/interface/Event.h"
 #include "FWCore/Framework/interface/MakerMacros.h"
@@ -39,6 +37,8 @@
 #include "CondFormats/DataRecord/interface/EcalChannelStatusRcd.h"
 #include "Geometry/CaloTopology/interface/EcalTrigTowerConstituentsMap.h"
 #include "Geometry/Records/interface/IdealGeometryRecord.h"
+#include "DataFormats/EcalDigi/interface/EcalDigiCollections.h"
+#include "CalibCalorimetry/EcalTPGTools/interface/EcalTPGScale.h"
 
 // Geometry
 #include "Geometry/CaloGeometry/interface/CaloGeometry.h"
@@ -60,20 +60,19 @@ class EcalPrinter : public edm::EDAnalyzer {
       explicit EcalPrinter(const edm::ParameterSet&);
       ~EcalPrinter();
 
-      static void fillDescriptions(edm::ConfigurationDescriptions& descriptions);
-
    private:
-      virtual void beginJob() override;
+      //virtual void beginJob() override;
       virtual void analyze(const edm::Event&, const edm::EventSetup&) override;
-      virtual void endJob() override;
+      virtual void endJob();
 
-      //virtual void beginRun(edm::Run const&, edm::EventSetup const&) override;
+      virtual void beginJob(const edm::Run &run, const edm::EventSetup& iSetup);
       //virtual void endRun(edm::Run const&, edm::EventSetup const&) override;
       //virtual void beginLuminosityBlock(edm::LuminosityBlock const&, edm::EventSetup const&) override;
       //virtual void endLuminosityBlock(edm::LuminosityBlock const&, edm::EventSetup const&) override;
 
       // ----------member data ---------------------------
       edm::ESHandle<EcalChannelStatus>  ecalStatus;
+      edm::ESHandle<CaloGeometry>       geometry;
       int maskedEcalChannelStatusThreshold_;
       bool print_;
       std::string outPath_;
@@ -82,6 +81,8 @@ class EcalPrinter : public edm::EDAnalyzer {
       std::map<DetId, EcalTrigTowerDetId> EcalAllDeadChannelsTTMap;
       edm::ESHandle<EcalTrigTowerConstituentsMap> ttMap_;
       edm::Handle<EcalTrigPrimDigiCollection> pTPDigis;
+
+      const edm::InputTag tpDigiCollection_;
       edm::EDGetTokenT<EcalTrigPrimDigiCollection> tpDigiCollectionToken_;
 
 };
@@ -100,7 +101,7 @@ class EcalPrinter : public edm::EDAnalyzer {
 EcalPrinter::EcalPrinter(const edm::ParameterSet& iConfig)
 : maskedEcalChannelStatusThreshold_ (iConfig.getParameter<int>("maskedEcalChannelStatusThreshold") ),
 print_ (iConfig.getParameter<bool>("makeFile") ),
-outPath_ (iConfig.getParameter<string>("outPath") ),
+outPath_ (iConfig.getParameter<std::string>("outPath") ),
 tpDigiCollection_ (iConfig.getParameter<edm::InputTag>("tpDigiCollection") ),
 tpDigiCollectionToken_(consumes<EcalTrigPrimDigiCollection>(tpDigiCollection_))
 
@@ -142,6 +143,7 @@ EcalPrinter::beginJob(const edm::Run &run, const edm::EventSetup& iSetup)
 			if(! EBDetId::validDetId( ieta, iphi ) )  continue;
 
 			const EBDetId detid = EBDetId( ieta, iphi, EBDetId::ETAPHIMODE );
+			EcalChannelStatus::const_iterator chit = ecalStatus->find( detid );
 			int status = ( chit != ecalStatus->end() ) ? chit->getStatusCode() & 0x1F : -1;
 			const CaloSubdetectorGeometry*  subGeom = geometry->getSubdetectorGeometry (detid);
 			const CaloCellGeometry*        cellGeom = subGeom->getGeometry (detid);
@@ -150,7 +152,7 @@ EcalPrinter::beginJob(const edm::Run &run, const edm::EventSetup& iSetup)
 				double phi = cellGeom->getPosition ().phi ();
 				double theta = cellGeom->getPosition().theta();
 
-				std::vector<int> valVec;
+				std::vector<double> valVec;
 
 				valVec.push_back(eta); valVec.push_back(phi); valVec.push_back(theta);
 				EcalAllDeadChannelsValMap.insert( std::make_pair(detid, valVec) );
@@ -195,15 +197,16 @@ void
 EcalPrinter::endJob() 
 {
 	FILE * f;
-	f = fopen(outPath,"w");
+	f = fopen(outPath_.c_str(),"w");
 	std::map<DetId,EcalTrigTowerDetId>::iterator it;
+	std::cout << "TP Map size: " << EcalAllDeadChannelsTTMap.size() << std::endl;
 	for (it = EcalAllDeadChannelsTTMap.begin(); it != EcalAllDeadChannelsTTMap.end(); ++it){
-		fprintf("%d %d",it->second->ieta(), it->second->iphi());
+		fprintf(f,"%d %d \n",it->second.ieta(), it->second.iphi());
 	};
+	fclose(f);
 
 }
 
 //define this as a plug-in
 DEFINE_FWK_MODULE(EcalPrinter);
 
-#endif
