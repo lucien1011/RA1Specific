@@ -9,3 +9,4 @@ git clone git@github.com:lucien1011/RA1Specific.git
 scram b -j 8
 cmsRun RA1Specific/EcalTPFilter/test/EcalDeadTowerPrinter_cfg.py
 ```
+Works on CMSSW only.
