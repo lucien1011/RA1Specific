@@ -72,7 +72,7 @@ class EcalPrinter : public edm::EDAnalyzer {
 
       // ----------member data ---------------------------
       edm::ESHandle<EcalChannelStatus>  ecalStatus;
-      //edm::ESHandle<CaloGeometry>       geometry;
+      edm::ESHandle<CaloGeometry>       geometry;
       int maskedEcalChannelStatusThreshold_;
       bool print_;
       std::string outPath_;
@@ -138,7 +138,7 @@ EcalPrinter::beginRun(const edm::Run &run, const edm::EventSetup& iSetup)
 	EcalAllDeadChannelsTTMap.clear();
 	
 	iSetup.get<EcalChannelStatusRcd> ().get(ecalStatus);
-	//iSetup.get<CaloGeometryRecord>   ().get(geometry);
+	iSetup.get<CaloGeometryRecord>   ().get(geometry);
 	iSetup.get<IdealGeometryRecord>().get(ttMap_);
 
 	if( !ecalStatus.isValid() )  throw "Failed to get ECAL channel status!";
@@ -170,7 +170,7 @@ EcalPrinter::beginRun(const edm::Run &run, const edm::EventSetup& iSetup)
 				if (EcalAllDeadChannelsTTMap.find(ttDetId) == EcalAllDeadChannelsTTMap.end()){
 					EcalAllDeadChannelsTTMap.insert(std::make_pair(ttDetId, std::vector< DetId >()));
 				};
-				//EcalAllDeadChannelsTTMap[ttDetId].push_back(detid);
+				EcalAllDeadChannelsTTMap[ttDetId].push_back(detid);
 			};
 		};
 	};
@@ -201,7 +201,7 @@ EcalPrinter::beginRun(const edm::Run &run, const edm::EventSetup& iSetup)
 					if (EcalAllDeadChannelsTTMap.find(ttDetId) == EcalAllDeadChannelsTTMap.end()){
 						EcalAllDeadChannelsTTMap.insert(std::make_pair(ttDetId, std::vector< DetId >()));
 					};
-					//EcalAllDeadChannelsTTMap[ttDetId].push_back(detid);
+					EcalAllDeadChannelsTTMap[ttDetId].push_back(detid);
 		            	};
 		         }; // end loop iz
 		      }; // end loop iy
@@ -215,7 +215,24 @@ EcalPrinter::beginRun(const edm::Run &run, const edm::EventSetup& iSetup)
 		//CaloSubdetectorGeometry* towerGeo = geometry->getSubdetectorGeometry (ttDetId);
 		//std::cout << towerGeo->parVecVec().eta() << std::endl;
 	//};
-
+	
+	FILE * f;
+	f = fopen(outPath_.c_str(),"w");
+	std::map<EcalTrigTowerDetId,std::vector<DetId>>::iterator it;
+	std::cout << "TP Map size: " << EcalAllDeadChannelsTTMap.size() << std::endl;
+	for (it = EcalAllDeadChannelsTTMap.begin(); it != EcalAllDeadChannelsTTMap.end(); ++it){
+		fprintf(f,"-------------------------------------\n");
+		fprintf(f,"Trigger Tower with dead or masked cells: %d %d \n",it->first.ieta(), it->first.iphi());
+		fprintf(f,"masked or dead cells: \n");
+		for (std::vector<DetId>::iterator itr = it->second.begin(); itr != it->second.end(); itr++){
+			const CaloSubdetectorGeometry*  subGeom = geometry->getSubdetectorGeometry (*itr);
+			const CaloCellGeometry*        cellGeom = subGeom->getGeometry (*itr);
+			double eta = cellGeom->getPosition().eta();
+			double phi = cellGeom->getPosition().phi();
+			fprintf(f,"eta:%f phi:%f \n",eta,phi);
+		};
+	};
+	fclose(f);
 	return;
 
 }
@@ -223,14 +240,18 @@ EcalPrinter::beginRun(const edm::Run &run, const edm::EventSetup& iSetup)
 void 
 EcalPrinter::endJob() 
 {
-	FILE * f;
-	f = fopen(outPath_.c_str(),"w");
-	std::map<EcalTrigTowerDetId,std::vector<DetId>>::iterator it;
-	std::cout << "TP Map size: " << EcalAllDeadChannelsTTMap.size() << std::endl;
-	for (it = EcalAllDeadChannelsTTMap.begin(); it != EcalAllDeadChannelsTTMap.end(); ++it){
-		fprintf(f,"%d %d \n",it->first.ieta(), it->first.iphi());
-	};
-	fclose(f);
+	//FILE * f;
+	//f = fopen(outPath_.c_str(),"w");
+	//std::map<EcalTrigTowerDetId,std::vector<DetId>>::iterator it;
+	//std::cout << "TP Map size: " << EcalAllDeadChannelsTTMap.size() << std::endl;
+	//for (it = EcalAllDeadChannelsTTMap.begin(); it != EcalAllDeadChannelsTTMap.end(); ++it){
+	//	fprintf(f,"%d %d \n",it->first.ieta(), it->first.iphi());
+	//	fprintf(f,"which has the following masked or dead cells: \n");
+	//	for (std::vector<DetId>::iterator itr = it->second.begin(); itr != it->second.end(); itr++){
+	//		fprintf(f,"eta:%d phi:%d ",itr->eta(),itr->phi());
+	//	};
+	//};
+	//fclose(f);
 
 }
 
