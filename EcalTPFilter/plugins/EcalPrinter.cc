@@ -61,11 +61,11 @@ class EcalPrinter : public edm::EDAnalyzer {
       ~EcalPrinter();
 
    private:
-      //virtual void beginJob() override;
+      virtual void beginJob() override;
       virtual void analyze(const edm::Event&, const edm::EventSetup&) override;
       virtual void endJob();
 
-      virtual void beginJob(const edm::Run &run, const edm::EventSetup& iSetup);
+      virtual void beginRun(const edm::Run &run, const edm::EventSetup& iSetup);
       //virtual void endRun(edm::Run const&, edm::EventSetup const&) override;
       //virtual void beginLuminosityBlock(edm::LuminosityBlock const&, edm::EventSetup const&) override;
       //virtual void endLuminosityBlock(edm::LuminosityBlock const&, edm::EventSetup const&) override;
@@ -125,11 +125,16 @@ EcalPrinter::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 
 }
 
+void
+EcalPrinter::beginJob(){
+};
+
 
 // ------------ method called once each job just before starting event loop  ------------
 void 
-EcalPrinter::beginJob(const edm::Run &run, const edm::EventSetup& iSetup)
+EcalPrinter::beginRun(const edm::Run &run, const edm::EventSetup& iSetup)
 {
+	
 	iSetup.get<EcalChannelStatusRcd> ().get(ecalStatus);
 	iSetup.get<CaloGeometryRecord>   ().get(geometry);
 	iSetup.get<IdealGeometryRecord>().get(ttMap_);
@@ -137,7 +142,6 @@ EcalPrinter::beginJob(const edm::Run &run, const edm::EventSetup& iSetup)
 	if( !ecalStatus.isValid() )  throw "Failed to get ECAL channel status!";
 	if( !geometry.isValid()   )  throw "Failed to get the geometry!";	
 
-// Loop over EB	
 	for (int ieta= -85; ieta <=85; ieta++){
 		for (int iphi=0; iphi <= 360; iphi++){
 			if(! EBDetId::validDetId( ieta, iphi ) )  continue;
@@ -190,6 +194,8 @@ EcalPrinter::beginJob(const edm::Run &run, const edm::EventSetup& iSetup)
 		EcalTrigTowerDetId ttDetId = ttMap_->towerOf(id);
 		EcalAllDeadChannelsTTMap.insert(std::make_pair(id, ttDetId) );
 	};
+
+	return;
 
 }
 
